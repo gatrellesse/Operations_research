@@ -41,92 +41,69 @@ def fordFulkerson(g, sName, tName):
      - mark[i] est égal à  -j si le sommet d'indice i peut être atteint en diminuant le flot de l'arc ji
      - mark[i] est égal à sys.float_info.max si le sommet n'est pas marqué
     """
-    mark = [sys.float_info.max] * g.n
-    
     # Récupérer l'indice de la source et du puits
     s = g.indexOf(sName)
     t = g.indexOf(tName)           
     # Créer un nouveau graphe contenant les même sommets que g
-     # Ajouter l'arête
     flow = graph.Graph(g.nodes)
     # Récupérer tous les arcs du graphe 
     arcs = g.getArcs()
-    #tree.addCopyOfEdge(edge) 
     edges = g.getEdges()     
-    
-    maxFlow = False
-    
-    while not maxFlow:
+    while True:
         mark = [sys.float_info.max] * g.n
-        mark[s] = s
-        prev_idx = s
-        idx = s
         queue = []
         visited = [False] * g.n
         queue.append(s)
+        # print("Restarting:",queue)
         while queue:
-            for arc in arcs:#analysing all edges of vertice
+            idx = queue.pop(0)
+            visited[idx] = True
+            for arc in arcs:#Forward arests
                 id1 = arc.id1
                 id2 = arc.id2
-                if(id1 != idx):
+                if(id1 != idx):#Current noued
                     continue
-                #Verify if the arcs exists
-                if (g.adjacency[id1][id2] == 0):
-                    continue
-                #print("Current flow: ",flow.adjacency[id1][id2] , " Max flow",g.adjacency[id1][id2] )
-                #print(flow.adjacency)
-                if ((mark[id1] != sys.float_info.max) and
-                    (mark[id2] == sys.float_info.max) and
+                if ((mark[id2] == sys.float_info.max) and
                     (flow.adjacency[id1][id2] < g.adjacency[id1][id2])):
                     mark[id2] = id1
-                    idx = id2
-                    queue.append(idx)
-                    print("Marking ",id1," to ",id2)
-                    
-                elif ((mark[id1] == sys.float_info.max) and
-                    (mark[id2] != sys.float_info.max) and
-                    (flow.adjacency[id1][id2] != 0 )):
+                    queue.append(id2)
+                    # print("Marking ",id1," to ",id2)
+            
+            for arc in arcs:#Backward arest
+                id1 = arc.id1
+                id2 = arc.id2
+                if(id2 != idx):
+                    continue
+
+                if ((mark[id1] == sys.float_info.max) and
+                    (flow.adjacency[id1][id2] > 0 )):#antecesor of s : adj[:][0] , next of s : adj[0][:]
                     mark[id1] = -id2
-                    idx = id1
-                    queue.append(idx)
-                    print("Marking -",id2," to ",id1)
-                
-            if mark[t] != sys.float_info.max:
-                break
-            else:
-                visited[idx] = True
-                print(visited)
-                #print(visited)
-                idx = queue.pop(0)
-                print("Checking for ", idx)
-                
+                    queue.append(id1)
+                    # print("Marking -",id2," to ",id1)
             
-        #print(mark)
-        if mark[t] != sys.float_info.max:
-            print("Updating flow")
-            goodWay = []
-            for i in range(1, g.n):
-                if mark[i] >= 0 and mark[i] != sys.float_info.max:
-                    goodWay.append(g.adjacency[mark[i]][i] - flow.adjacency[mark[i]][i])
-            if(not goodWay):
-                goodWay = 0
-            else: goodWay = min(goodWay)
+        if mark[t] != sys.float_info.max:#Updating flow
+            v = t
+            bn = sys.float_info.max
+            while v != s:
+                u = abs(mark[v])
+                if (mark[v] >= 0):
+                    bn = min(bn, g.adjacency[u][v] - flow.adjacency[u][v])
+                elif (mark[v] < 0 ):
+                    bn = min(bn, flow.adjacency[v][u])
+
+                v = u
+            # print("Update flow:",bn)
+            v = t
+            while v != s:
+                u = abs(mark[v])
+                if (mark[v] >= 0):
+                    flow.adjacency[u][v] += bn
+                elif (mark[v] < 0):
+                    flow.adjacency[v][u] -= bn
+                v = u
+        else:
             
-            badWay = []
-            for i in range(1, g.n):
-                if mark[i] < 0:
-                    badWay.append(g.adjacency[i][abs(mark[i])] - flow.adjacency[i][abs(mark[i])])
-            if(not badWay):
-                badWay = goodWay
-            else: badWay = min(badWay)
-            newFlow = min(badWay, goodWay)
-            print("Augmentation flow: ", newFlow,"\n")
-            for i in range(1, g.n):
-                if(mark[i] < 0):
-                    flow.adjacency[abs(mark[i])][i] -= newFlow
-                if(mark[i] >= 0 and mark[i] != sys.float_info.max):
-                    flow.adjacency[mark[i]][i] +=  newFlow
-        else: break
+            break
         
     return flow
    
