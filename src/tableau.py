@@ -174,7 +174,6 @@ class Tableau:
     # Obtenir la solution du tableau qui est supposé être sous forme canonique
     def getSolution(self):
         self.bestSolution = np.array([0.0] * self.n)
-
         # For each basic variable, get its value 
         for varBase in range(self.m):
             varId = self.basis[varBase]

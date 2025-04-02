@@ -12,7 +12,6 @@ class BBNode:
     
     # Profondeur du noeud (utilisé uniquement pour afficher l'arbre dans la console avec une indentation)
     depth = 0
-
     """     
     Créer un noeud racine
     - A: matrice des coefficients
@@ -41,8 +40,23 @@ class BBNode:
     def branch(self, tree):
 
         # Résout la relaxation linéaire
-        self.tableau.applySimplexPhase1And2()
-        
+        print(f"Best objective {tree.bestObjective}")
+        relaxedTableau = self.tableau.tableauWithSlack()
+        relaxedTableau.applySimplex()
+
+         # Vérifier si le problème est faisable
+        if relaxedTableau.bestSolution is None:
+            return  # Noeud infaisable, on ne branche pas
+
+        current_obj = int(relaxedTableau.bestObjective)
+        # Vérification du critère d'élagage
+        if tree.bestSolution is not None:
+            if self.tableau.isMinimization and current_obj >= tree.bestObjective:
+                print(f"Pruning node at depth {self.depth}: Worse than best found.")
+                return
+            elif not self.tableau.isMinimization and current_obj <= tree.bestObjective:
+                print(f"Pruning node at depth {self.depth}: Worse than best found.")
+                return
         """
         I - Description des variables et de leurs attributs que vous devrez utiliser
          - Variable tableau : représente le programme linéaire associé à ce sommet (c'est donc un problème continu). Ses attributs sont :
@@ -73,8 +87,46 @@ class BBNode:
            V - Comment brancher sur un objet "node" de type BBNode situé dans un arbre "tree" ?
            node.branch(tree)
         """
-            
+        greatest_frac = 0
+        x_branch = -1
+        for idx in range(self.tableau.n):  # Only consider original variables
+            val = relaxedTableau.bestSolution[idx]
+            if isFractional(val):
+                fractionality = val % 1
+                if fractionality > greatest_frac:
+                    greatest_frac = fractionality
+                    x_branch = idx
+        if x_branch != -1:
+            input(f"BRANCHING LESSER ON X{x_branch} FOR {relaxedTableau.bestSolution[:2]}")
+            # Première branche (x <= floor(bestSolution[x_branch]))
+            newA = np.array([0.0] * self.tableau.n)
+            newA[x_branch] = 1  # Coefficient pour x_branch
+            newRhs = math.floor(relaxedTableau.bestSolution[x_branch])
+
+            left_child = BBNode.create_non_root(self, newA, newRhs)
+            left_child.branch(tree)
+
+            # Deuxième branche (x >= ceil(bestSolution[x_branch])) <=> -x <= -ceil(bestSolution[x_branch])
+            input(f"BRANCHING HIGHER ON X{x_branch} FOR {relaxedTableau.bestSolution[:2]}")
+            newA = np.array([0.0] * self.tableau.n)
+            newA[x_branch] = -1  # Contraintes sous la forme Ax <= b
+            newRhs = -math.ceil(relaxedTableau.bestSolution[x_branch])
+
+            right_child = BBNode.create_non_root(self, newA, newRhs)
+            right_child.branch(tree)
+        else:#solution entier trouve
+            if (tree.bestSolution is None or 
+                (self.tableau.isMinimization and current_obj < tree.bestObjective) or
+                (not self.tableau.isMinimization and current_obj > tree.bestObjective)):
+                print("New best integer solution found")
+                tree.bestSolution = relaxedTableau.bestSolution[:self.tableau.n]  # Only original variables
+                tree.bestObjective = int(current_obj)
+
+        print(f"Current best integer solution: {tree.bestSolution}")
         # TODO
+
+
+
 
     """
          (attention : ne pas utiliser directement cette méthode, utiliser à la place create_root ou create_non_root)
@@ -91,10 +143,8 @@ class BBNode:
             self.tableau = tableau.Tableau(A, rhs, obj, isMinimization)
             self.depth = 0
         else:
-                
             # Ajouter la contrainte
             self.depth = parent.depth + 1
-
             newMA = np.copy(parent.tableau.A)
             newMA = np.vstack([newMA, np.copy(newA)])
 
